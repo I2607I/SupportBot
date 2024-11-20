@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  # postgres_db:
+  #   image: postgres:latest
+  #   # restart: always
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     POSTGRES_HOST: ${POSTGRES_HOST}
+  #   volumes:
+  #     - postgres_data_z:/var/lib/postgresql/data
+  #   ports:
+  #     - 5432:5432
+  
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   container_name: pgadmin4
+  #   # restart: unless-stopped
+  #   ports:
+  #     - 5016:443
+  #   user: "$UID:$GID"
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+  #     - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+  #   volumes:
+  #     - ./pgadmin-data:/var/lib/pgadmin
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./project/Dockerfile
+    command: python project/bot/bot.py
+    volumes:
+      - .:/app
+    ports:
+      - "7432:7432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=5432
+  redis:
+    container_name: redis
+    env_file:
+      - .env
+    image: redis:latest
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  celery:
+    container_name: celery
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+#    command: python -m celery -A tasks.worker worker --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data_z:
+  app_data:

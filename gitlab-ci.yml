@@ -1,0 +1,117 @@
+# stages:
+#   - build
+#   - check
+#   - publish
+#   - deploy
+
+# variables:
+#   TAG_LATEST: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:latest
+#   TAG_COMMIT: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA
+#   PYTHON_IMAGE: python:3.10
+#   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+#   CODE: "app tests"
+#   POETRY_VERSION: 1.1.13
+
+# build:
+#   image: $PYTHON_IMAGE
+#   stage: build
+#   artifacts:
+#     paths:
+#       - .cache/pip
+#       - .venv/
+#   script:
+#     - python -V
+#     - python -m venv .venv
+#     - source .venv/bin/activate
+#     - python -m pip install --upgrade pip
+#     - python -m pip install poetry==$POETRY_VERSION
+#     - poetry install
+
+# lint:
+#   image: $PYTHON_IMAGE
+#   stage: check
+#   before_script:
+#     - source .venv/bin/activate
+#   script:
+#     - flake8 --jobs 4 --statistics --show-source $CODE
+#     - pylint --jobs 4 $CODE
+#     - mypy $CODE
+#     - black --line-length 79 --target-version py310 --skip-string-normalization --check $CODE
+#     - pytest --dead-fixtures --dup-fixtures
+
+# test:
+#   image: $PYTHON_IMAGE
+#   stage: check
+#   variables:
+#     POSTGRES_DB: data
+#     POSTGRES_USER: pguser
+#     POSTGRES_PASSWORD: pgpswd
+#     POSTGRES_HOST: postgres
+#     POSTGRES_PORT: 5432
+#   services:
+#     - name: postgres:14.5
+#   before_script:
+#     - source .venv/bin/activate
+#   script:
+#     - pytest --verbosity=2 --showlocals --log-level=DEBUG --cov
+
+# publish:
+#   image: docker:20.10.16
+#   stage: publish
+#   tags:
+#     - docker
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   services:
+#     - name: docker:20.10.16-dind
+#       command: ["--tls=false"]
+#   script:
+#     - docker build -t $TAG_COMMIT -t $TAG_LATEST .
+#     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+#     - docker push $TAG_COMMIT
+#     - docker push $TAG_LATEST
+#   only:
+#     - master
+
+# deploy:
+#   image: alpine:latest
+#   stage: deploy
+#   before_script:
+#     - apk update && apk add openssh-client openvpn
+#     - mkdir -p /dev/net
+#     - chmod 600 /dev/net/tun
+#     - openvpn --config $OPENVPN_CONFIG --daemon
+#     - ping -c 10 $SERVER_IP
+#     - mkdir -p ~/.ssh
+#     - cat $SSH_PRIVATE_KEY > ~/.ssh/deploy_key
+#     - chmod 600 ~/.ssh/deploy_key
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "echo "Ping" && exit"
+#   script:
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "mkdir -p /home/$SERVER_USER/$PRODUCTION_FOLDER"
+#     - scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no docker-compose-for-deploy.yml $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/$PRODUCTION_FOLDER/docker-compose.yml
+#     - scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no MinioClient.Dockerfile $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/$PRODUCTION_FOLDER/
+#     - scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nginx.conf $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/$PRODUCTION_FOLDER/
+#     - scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $ENV_FILE $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/$PRODUCTION_FOLDER/.env
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "
+#         sudo docker network create prod || true && exit"
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "
+#         cd $PRODUCTION_FOLDER && sudo docker-compose up -d && exit"
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "
+#         sudo docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY && 
+#         sudo docker pull $TAG_COMMIT && exit"
+#     - ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "
+#         sudo docker container rm -f python_scouts || true &&
+#         cd $PRODUCTION_FOLDER &&
+#         sudo docker run -d --net prod --env-file ".env" -p 8090:8090 --hostname python_scouts --name python_scouts $TAG_COMMIT &&
+#         sudo docker logout && exit"
+#   after_script:
+#     - killall openvpn
+
+#   only:
+#     - master
+
+
+
+test:
+  script: lsjhghubh

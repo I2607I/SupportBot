@@ -1,0 +1,1 @@
+df | awk 'NR==3{ (substr($5, 0, length($5)-1)<90) ? system("docker ps") : system("sudo docker system prune --all") }'
